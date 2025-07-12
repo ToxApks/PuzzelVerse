@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PuzzleVerse - Offline Puzzle Collection</title>
+    <style>
+        /* --- GLOBAL STYLES & THEME --- */
+        :root {
+            --font-main: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            
+            --light-bg: #f0f4f8;
+            --light-surface: #ffffff;
+            --light-text: #1e293b;
+            --light-text-secondary: #475569;
+            --light-primary: #3b82f6;
+            --light-primary-hover: #2563eb;
+            --light-accent: #ec4899;
+            --light-border: #cbd5e1;
+            --light-shadow: rgba(0, 0, 0, 0.1);
+
+            --dark-bg: #0f172a;
+            --dark-surface: #1e293b;
+            --dark-text: #e2e8f0;
+            --dark-text-secondary: #94a3b8;
+            --dark-primary: #60a5fa;
+            --dark-primary-hover: #3b82f6;
+            --dark-accent: #f472b6;
+            --dark-border: #334155;
+            --dark-shadow: rgba(0, 0, 0, 0.25);
+        }
+
+        [data-theme="light"] {
+            --bg-color: var(--light-bg);
+            --surface-color: var(--light-surface);
+            --text-color: var(--light-text);
+            --text-secondary-color: var(--light-text-secondary);
+            --primary-color: var(--light-primary);
+            --primary-hover-color: var(--light-primary-hover);
+            --accent-color: var(--light-accent);
+            --border-color: var(--light-border);
+            --shadow-color: var(--light-shadow);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: var(--dark-bg);
+            --surface-color: var(--dark-surface);
+            --text-color: var(--dark-text);
+            --text-secondary-color: var(--dark-text-secondary);
+            --primary-color: var(--dark-primary);
+            --primary-hover-color: var(--dark-primary-hover);
+            --accent-color: var(--dark-accent);
+            --border-color: var(--dark-border);
+            --shadow-color: var(--dark-shadow);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow: hidden; /* Prevent scroll during load/modal */
+        }
+
+        /* --- LOADER --- */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background-color: var(--bg-color);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        #loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #loader h1 {
+            font-size: 2rem;
+            margin-top: 1rem;
+            color: var(--primary-color);
+        }
+
+        /* --- DEVELOPER POPUP --- */
+        #developer-popup {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--surface-color);
+            color: var(--text-color);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px var(--shadow-color);
+            z-index: 1001;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            font-size: 0.9rem;
+            border-left: 4px solid var(--primary-color);
+        }
+        #developer-popup.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+
+        /* --- HEADER --- */
+        #main-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, var(--bg-color) 50%, transparent);
+        }
+        #logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        #header-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .control-btn {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px var(--shadow-color);
+        }
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-color);
+            border-color: var(--primary-color);
+        }
+        .control-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--text-secondary-color);
+            transition: stroke 0.2s ease;
+        }
+        .control-btn:hover svg {
+            stroke: var(--primary-color);
+        }
+
+        /* --- MAIN HUB --- */
+        #main-hub {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 6rem 2rem 2rem;
+            overflow-y: auto;
+        }
+        #puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .puzzle-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 10px var(--shadow-color);
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .puzzle-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            box-shadow: 0 10px 20px var(--shadow-color);
+            border-color: var(--primary-color);
+        }
+        .puzzle-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+        .puzzle-card.locked:hover {
+            transform: none;
+            box-shadow: 0 4px 10px var(--shadow-color);
+            border-color: var(--border-color);
+        }
+        .puzzle-card-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        .puzzle-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+        .puzzle-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary-color);
+        }
+
+        /* --- GAME MODAL --- */
+        #game-modal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 500;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #game-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #game-container {
+            background-color: var(--bg-color);
+            width: 95%;
+            height: 95%;
+            max-width: 1200px;
+            max-height: 800px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        #game-modal.visible #game-container {
+            transform: scale(1);
+        }
+        #game-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #game-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        #close-game-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        #close-game-btn svg {
+            width: 30px;
+            height: 30px;
+            stroke: var(--text-secondary-color);
+            transition: stroke 0.2s ease, transform 0.2s ease;
+        }
+        #close-game-btn:hover svg {
+            stroke: var(--accent-color);
+            transform: rotate(90deg);
+        }
+        #game-content {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- GAME-SPECIFIC STYLES --- */
+        .game-controls {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .game-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        .game-btn:hover {
+            background-color: var(--primary-hover-color);
+        }
+
+        /* 1-4. Previous Games (styles unchanged) */
+        .sliding-puzzle-container, #memory-board, #color-sequence-game, #sudoku-container { width: 100%; }
+        /* (Copied from previous response for brevity) */
+        .sliding-puzzle-container { display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; } #sliding-puzzle-board { display: grid; border: 2px solid var(--primary-color); border-radius: 8px; overflow: hidden; } .sliding-tile { display: flex; justify-content: center; align-items: center; font-size: 2rem; font-weight: bold; background-color: var(--surface-color); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s ease-in-out; user-select: none; } .sliding-tile:not(.empty):hover { background-color: var(--primary-color); color: white; transform: scale(1.05); } .sliding-tile.empty { background-color: transparent; cursor: default; border-color: transparent; } .sliding-puzzle-info { text-align: center; } .sliding-puzzle-stats { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); } #sliding-puzzle-reset { margin-top: 1rem; padding: 0.5rem 1rem; background-color: var(--accent-color); color: white; border: none; border-radius: 5px; cursor: pointer; } #memory-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; perspective: 1000px; max-width: 600px; margin: auto; } .memory-card { width: 100%; aspect-ratio: 1 / 1; position: relative; transform-style: preserve-3d; transition: transform 0.6s; cursor: pointer; } .memory-card.flipped, .memory-card.matched { transform: rotateY(180deg); cursor: default; } .memory-card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; justify-content: center; align-items: center; border-radius: 8px; } .card-front { background: linear-gradient(135deg, var(--primary-color), var(--primary-hover-color)); } .card-back { background-color: var(--surface-color); transform: rotateY(180deg); font-size: 2.5rem; color: var(--accent-color); } #color-sequence-game { display: flex; flex-direction: column; align-items: center; gap: 2rem; } #sequence-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 300px; height: 300px; } .sequence-btn { border-radius: 16px; border: 5px solid var(--surface-color); cursor: pointer; transition: all 0.1s ease; } .sequence-btn.active { transform: scale(0.95); filter: brightness(1.2); } #seq-red { background-color: #ef4444; } #seq-green { background-color: #22c55e; } #seq-blue { background-color: #3b82f6; } #seq-yellow { background-color: #eab308; } #sequence-status { font-size: 1.2rem; font-weight: bold; height: 2rem; } #start-sequence-btn { padding: 0.75rem 1.5rem; font-size: 1rem; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; } #sudoku-container { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; } #sudoku-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 3px solid var(--text-color); border-radius: 5px; } .sudoku-cell { width: 50px; height: 50px; border: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; } .sudoku-cell input { width: 100%; height: 100%; text-align: center; border: none; background: transparent; font-size: 1.5rem; color: var(--primary-color); padding: 0; } .sudoku-cell.given { color: var(--text-color); } .sudoku-cell.error input { color: #ef4444; animation: shake 0.3s; } @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} } #sudoku-controls button { margin: 0 0.5rem; }
+
+        /* 5. Logic Gate */
+        #logic-gate-container { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        #logic-gate-level-desc { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-secondary-color); }
+        #logic-gate-circuit { width: 100%; max-width: 500px; }
+        .wire { stroke: var(--border-color); stroke-width: 4; transition: stroke 0.3s; }
+        .wire.on { stroke: var(--accent-color); }
+        .gate-body { fill: var(--surface-color); stroke: var(--text-color); stroke-width: 2; }
+        .gate-text { font-family: var(--font-main); fill: var(--text-color); font-weight: bold; }
+        .logic-input, .logic-output { cursor: pointer; }
+        .logic-input text, .logic-output text { user-select: none; }
+        .logic-output.win .gate-body { fill: #22c55e; }
+
+        /* 6. Jigsaw Puzzle */
+        #jigsaw-container { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+        #jigsaw-board { display: grid; border: 2px dashed var(--border-color); padding: 5px; background-color: rgba(0,0,0,0.05); }
+        .jigsaw-slot { background-color: transparent; }
+        #jigsaw-pieces { display: flex; flex-wrap: wrap; gap: 10px; max-width: 400px; }
+        .jigsaw-piece { cursor: grab; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--border-color); }
+        .jigsaw-piece:hover { transform: scale(1.1); box-shadow: 0 5px 15px var(--shadow-color); z-index: 10; }
+        .jigsaw-piece.dragging { opacity: 0.5; cursor: grabbing; }
+        .jigsaw-piece.snapped { cursor: default; }
+
+        /* 7. Word Unscramble */
+        #unscramble-container { text-align: center; }
+        #scrambled-word { font-size: 3rem; letter-spacing: 0.5rem; margin-bottom: 2rem; padding: 1rem; background: var(--surface-color); border-radius: 8px; }
+        #unscramble-input { width: 100%; max-width: 400px; padding: 1rem; font-size: 1.5rem; text-align: center; border: 2px solid var(--border-color); border-radius: 8px; background-color: var(--surface-color); color: var(--text-color); text-transform: uppercase; }
+        #unscramble-input:focus { outline: none; border-color: var(--primary-color); }
+
+        /* 8. Maze Runner */
+        #maze-container { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        #maze-grid { display: grid; border: 2px solid var(--text-color); }
+        .maze-cell { background-color: var(--surface-color); transition: background-color 0.3s; }
+        .maze-cell.wall { background-color: var(--text-secondary-color); }
+        .maze-cell.player { background-color: var(--primary-color); border-radius: 50%; animation: pulse 1s infinite; }
+        .maze-cell.goal { background-color: var(--accent-color); }
+        @keyframes pulse { 0%, 100% { transform: scale(0.8); } 50% { transform: scale(1); } }
+        #maze-info { color: var(--text-secondary-color); }
+
+        /* WIN SCREEN */
+        #win-screen { position: absolute; inset: 0; background-color: rgba(0,0,0,0.7); z-index: 1000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        #win-screen.visible { opacity: 1; visibility: visible; }
+        #win-box { background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); padding: 3rem; border-radius: 20px; text-align: center; transform: scale(0.5); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        #win-screen.visible #win-box { transform: scale(1); }
+        #win-box h2 { font-size: 3rem; margin-bottom: 1rem; }
+        #win-box p { font-size: 1.2rem; margin-bottom: 2rem; }
+        #win-box button { padding: 0.75rem 1.5rem; border: 2px solid white; background: transparent; color: white; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+        
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            #main-header { padding: 1rem; }
+            #puzzle-grid { grid-template-columns: 1fr; gap: 1rem; }
+            #game-container { width: 100%; height: 100%; border-radius: 0; }
+            .sliding-puzzle-container { flex-direction: column; align-items: center; }
+            #jigsaw-container { flex-direction: column; align-items: center; }
+        }
+
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <h1>PuzzleVerse</h1>
+    </div>
+
+    <div id="developer-popup">
+        Created by: <strong>Sanskar | RIT</strong>
+    </div>
+
+    <header id="main-header">
+        <div id="logo">🧩 PuzzleVerse</div>
+        <div id="header-controls">
+            <button id="sound-toggle" class="control-btn" aria-label="Toggle Sound"></button>
+            <button id="theme-toggle" class="control-btn" aria-label="Toggle Theme"></button>
+        </div>
+    </header>
+
+    <main id="main-hub">
+        <div id="puzzle-grid">
+            <div class="puzzle-card" data-puzzle="sliding-puzzle"><div class="puzzle-card-icon">🔢</div><h3>Sliding Puzzle</h3><p>Arrange the tiles in order.</p></div>
+            <div class="puzzle-card" data-puzzle="memory-match"><div class="puzzle-card-icon">🃏</div><h3>Memory Match</h3><p>Find all the matching pairs.</p></div>
+            <div class="puzzle-card" data-puzzle="color-sequence"><div class="puzzle-card-icon">🎨</div><h3>Color Sequence</h3><p>Repeat the growing sequence.</p></div>
+            <div class="puzzle-card" data-puzzle="mini-sudoku"><div class="puzzle-card-icon">🔢</div><h3>Mini Sudoku</h3><p>Fill the 4x4 grid with numbers 1-4.</p></div>
+            <div class="puzzle-card" data-puzzle="logic-gate"><div class="puzzle-card-icon">⚙️</div><h3>Logic Gates</h3><p>Solve logic circuits to get the output.</p></div>
+            <div class="puzzle-card" data-puzzle="jigsaw-puzzle"><div class="puzzle-card-icon">🧩</div><h3>Jigsaw Puzzle</h3><p>Put the pieces together.</p></div>
+            <div class="puzzle-card" data-puzzle="word-unscramble"><div class="puzzle-card-icon">🔤</div><h3>Word Unscramble</h3><p>Find the hidden word.</p></div>
+            <div class="puzzle-card" data-puzzle="maze-runner"><div class="puzzle-card-icon">🗺️</div><h3>Maze Runner</h3><p>Find your way to the exit.</p></div>
+        </div>
+    </main>
+
+    <div id="game-modal">
+        <div id="game-container">
+            <header id="game-header">
+                <h2 id="game-title">Puzzle Title</h2>
+                <button id="close-game-btn" aria-label="Close Game">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </header>
+            <div id="game-content"></div>
+            <div id="win-screen">
+                <div id="win-box">
+                    <h2>You Won!</h2>
+                    <p id="win-stats"></p>
+                    <button id="play-again-btn">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game HTML Templates -->
+    <template id="template-sliding-puzzle"> <div class="sliding-puzzle-container"> <div id="sliding-puzzle-board"></div> <div class="sliding-puzzle-info"> <h4>Stats</h4> <p class="sliding-puzzle-stats">Moves: <span id="moves-count">0</span></p> <p class="sliding-puzzle-stats">Time: <span id="timer">0s</span></p> <button id="sliding-puzzle-reset" class="game-btn">Reset</button> </div> </div> </template>
+    <template id="template-memory-match"> <div id="memory-board"></div> </template>
+    <template id="template-color-sequence"> <div id="color-sequence-game"> <div id="sequence-status">Press Start to Play!</div> <div id="sequence-buttons"> <div class="sequence-btn" id="seq-red" data-color="red"></div> <div class="sequence-btn" id="seq-green" data-color="green"></div> <div class="sequence-btn" id="seq-blue" data-color="blue"></div> <div class="sequence-btn" id="seq-yellow" data-color="yellow"></div> </div> <button id="start-sequence-btn" class="game-btn">Start Game</button> </div> </template>
+    <template id="template-mini-sudoku"> <div id="sudoku-container"> <div id="sudoku-grid"></div> <div id="sudoku-controls" class="game-controls"> <button id="sudoku-check" class="game-btn">Check</button> <button id="sudoku-reset" class="game-btn">New Puzzle</button> </div> </div> </template>
+    
+    <template id="template-logic-gate">
+        <div id="logic-gate-container">
+            <h4 id="logic-gate-level-desc">Level 1: The AND Gate</h4>
+            <svg id="logic-gate-circuit" viewBox="0 0 400 200"></svg>
+            <div id="logic-gate-controls" class="game-controls">
+                 <button id="logic-gate-next" class="game-btn" style="display:none;">Next Level</button>
+            </div>
+        </div>
+    </template>
+    <template id="template-jigsaw-puzzle">
+        <div id="jigsaw-container">
+            <div id="jigsaw-board"></div>
+            <div id="jigsaw-pieces"></div>
+        </div>
+    </template>
+    <template id="template-word-unscramble">
+        <div id="unscramble-container">
+            <div id="scrambled-word"></div>
+            <input type="text" id="unscramble-input" placeholder="Type your guess here...">
+            <div class="game-controls">
+                <button id="unscramble-next" class="game-btn">Next Word</button>
+            </div>
+        </div>
+    </template>
+    <template id="template-maze-runner">
+        <div id="maze-container">
+            <div id="maze-grid"></div>
+            <p id="maze-info">Use Arrow Keys or WASD to move.</p>
+        </div>
+    </template>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- GLOBAL ELEMENTS & STATE ---
+        const body = document.body;
+        const loader = document.getElementById('loader');
+        const developerPopup = document.getElementById('developer-popup');
+        const soundToggle = document.getElementById('sound-toggle');
+        const themeToggle = document.getElementById('theme-toggle');
+        const gameModal = document.getElementById('game-modal');
+        const gameTitle = document.getElementById('game-title');
+        const gameContent = document.getElementById('game-content');
+        const closeGameBtn = document.getElementById('close-game-btn');
+        const puzzleCards = document.querySelectorAll('.puzzle-card:not(.locked)');
+        const winScreen = document.getElementById('win-screen');
+        const winStats = document.getElementById('win-stats');
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        let currentPuzzle = null;
+        let soundEnabled = false;
+        let currentTheme = 'light';
+        let audioContext;
+        
+        const SVGs = {
+            soundOn: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
+            soundOff: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`,
+            lightMode: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`,
+            darkMode: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`
+        };
+
+        // --- CORE APP LOGIC ---
+
+        function init() {
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                body.style.overflow = 'auto';
+                setTimeout(() => {
+                    developerPopup.classList.add('visible');
+                    setTimeout(() => developerPopup.classList.remove('visible'), 5000);
+                }, 500);
+            }, 1000);
+
+            themeToggle.innerHTML = SVGs.darkMode;
+            soundToggle.innerHTML = SVGs.soundOff;
+            
+            themeToggle.addEventListener('click', toggleTheme);
+            soundToggle.addEventListener('click', toggleSound);
+            
+            puzzleCards.forEach(card => card.addEventListener('click', () => openGame(card.dataset.puzzle)));
+            
+            closeGameBtn.addEventListener('click', closeGame);
+            gameModal.addEventListener('click', (e) => {
+                if (e.target === gameModal) closeGame();
+            });
+            
+            playAgainBtn.addEventListener('click', () => {
+                winScreen.classList.remove('visible');
+                if (currentPuzzle && puzzleModules[currentPuzzle] && puzzleModules[currentPuzzle].init) {
+                    puzzleModules[currentPuzzle].init();
+                }
+            });
+        }
+
+        function toggleTheme() { /* ... (same as before) ... */ playSound('click'); currentTheme = currentTheme === 'light' ? 'dark' : 'light'; body.dataset.theme = currentTheme; themeToggle.innerHTML = currentTheme === 'light' ? SVGs.darkMode : SVGs.lightMode; }
+        function toggleSound() { /* ... (same as before) ... */ soundEnabled = !soundEnabled; soundToggle.innerHTML = soundEnabled ? SVGs.soundOn : SVGs.soundOff; if (soundEnabled && !audioContext) { audioContext = new (window.AudioContext || window.webkitAudioContext)(); } }
+        function playSound(type, freq = 440, duration = 0.1) { if (!soundEnabled || !audioContext) return; const o = audioContext.createOscillator(), g = audioContext.createGain(); let wt = 'sine'; if (type === 'click') { freq = 880; duration = 0.05; wt = 'triangle'; } if (type === 'error') { freq = 220; duration = 0.2; wt = 'square'; } if (type === 'win') { freq = 523.25; duration = 0.5; } o.type = wt; o.frequency.setValueAtTime(freq, audioContext.currentTime); g.gain.setValueAtTime(0.5, audioContext.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration); o.connect(g); g.connect(audioContext.destination); o.start(); o.stop(audioContext.currentTime + duration); }
+
+        function openGame(puzzleId) {
+            currentPuzzle = puzzleId;
+            const puzzleModule = puzzleModules[puzzleId];
+            if (!puzzleModule) return;
+            
+            playSound('click');
+            gameTitle.textContent = puzzleModule.title;
+            const template = document.getElementById(`template-${puzzleId}`);
+            gameContent.innerHTML = '';
+            gameContent.appendChild(template.content.cloneNode(true));
+            
+            puzzleModule.init();
+            
+            body.style.overflow = 'hidden';
+            gameModal.classList.add('visible');
+        }
+
+        function closeGame() {
+            playSound('click');
+            gameModal.classList.remove('visible');
+            body.style.overflow = 'auto';
+            winScreen.classList.remove('visible');
+            
+            if (currentPuzzle && puzzleModules[currentPuzzle].cleanup) {
+                puzzleModules[currentPuzzle].cleanup();
+            }
+            currentPuzzle = null;
+        }
+
+        function showWinScreen(stats) {
+            playSound('win');
+            winStats.textContent = stats;
+            winScreen.classList.add('visible');
+        }
+
+        // --- PUZZLE MODULES ---
+        
+        const puzzleModules = {
+            'sliding-puzzle': { /* ... (same as before) ... */ title: 'Sliding Puzzle', timerInterval: null, init() { const board = document.getElementById('sliding-puzzle-board'); const movesSpan = document.getElementById('moves-count'); const timerSpan = document.getElementById('timer'); const size = 3; let tiles = [], moves = 0, time = 0; const createBoard = () => { board.innerHTML = ''; board.style.gridTemplateColumns = `repeat(${size}, 1fr)`; tiles = []; for (let i = 0; i < size * size; i++) { const tile = document.createElement('div'); tile.classList.add('sliding-tile'); tile.dataset.index = i; tile.style.width = `20vmin`; tile.style.height = `20vmin`; if (i === size * size - 1) { tile.classList.add('empty'); tile.textContent = ''; } else { tile.textContent = i + 1; } tiles.push(tile); board.appendChild(tile); } }; const shuffle = () => { for (let i = 0; i < 100; i++) { const emptyTile = tiles.find(t => t.classList.contains('empty')); const emptyIndex = parseInt(emptyTile.dataset.index); const neighbors = []; if (emptyIndex % size !== 0) neighbors.push(emptyIndex - 1); if (emptyIndex % size !== size - 1) neighbors.push(emptyIndex + 1); if (emptyIndex >= size) neighbors.push(emptyIndex - size); if (emptyIndex < size * (size - 1)) neighbors.push(emptyIndex + size); const randomIndex = neighbors[Math.floor(Math.random() * neighbors.length)]; swapTiles(emptyTile, tiles[randomIndex]); } moves = 0; movesSpan.textContent = moves; }; const swapTiles = (tile1, tile2) => { const tempText = tile1.textContent; tile1.textContent = tile2.textContent; tile2.textContent = tempText; const tempClass = tile1.classList.contains('empty'); tile1.classList.toggle('empty', tile2.classList.contains('empty')); tile2.classList.toggle('empty', tempClass); }; const checkWin = () => { for (let i = 0; i < size * size - 1; i++) { if (parseInt(tiles[i].textContent) !== i + 1) return false; } return true; }; const handleTileClick = (e) => { if (e.target.classList.contains('empty')) return; const clickedTile = e.target; const emptyTile = tiles.find(t => t.classList.contains('empty')); const clickedIndex = parseInt(clickedTile.dataset.index); const emptyIndex = parseInt(emptyTile.dataset.index); const isAdjacent = (Math.abs(clickedIndex - emptyIndex) === 1 && Math.floor(clickedIndex / size) === Math.floor(emptyIndex / size)) || (Math.abs(clickedIndex - emptyIndex) === size); if (isAdjacent) { swapTiles(clickedTile, emptyTile); moves++; movesSpan.textContent = moves; playSound('click', 660); if (checkWin()) { clearInterval(this.timerInterval); showWinScreen(`Completed in ${time}s and ${moves} moves!`); } } }; const startTimer = () => { clearInterval(this.timerInterval); time = 0; timerSpan.textContent = `${time}s`; this.timerInterval = setInterval(() => { time++; timerSpan.textContent = `${time}s`; }, 1000); }; const resetGame = () => { createBoard(); shuffle(); startTimer(); board.addEventListener('click', handleTileClick); }; document.getElementById('sliding-puzzle-reset').addEventListener('click', resetGame); resetGame(); }, cleanup() { clearInterval(this.timerInterval); } },
+            'memory-match': { /* ... (same as before) ... */ title: 'Memory Match', init() { const board = document.getElementById('memory-board'); const icons = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼']; let cards = [...icons, ...icons]; let flippedCards = []; let matchedPairs = 0; const shuffle = (array) => array.sort(() => Math.random() - 0.5); const createBoard = () => { board.innerHTML = ''; matchedPairs = 0; shuffle(cards); cards.forEach(icon => { const card = document.createElement('div'); card.classList.add('memory-card'); card.dataset.icon = icon; card.innerHTML = `<div class="memory-card-face card-front"></div><div class="memory-card-face card-back">${icon}</div>`; card.addEventListener('click', handleCardClick); board.appendChild(card); }); }; const handleCardClick = (e) => { const clickedCard = e.currentTarget; if (flippedCards.length >= 2 || clickedCard.classList.contains('flipped') || clickedCard.classList.contains('matched')) return; clickedCard.classList.add('flipped'); flippedCards.push(clickedCard); playSound('click', 784); if (flippedCards.length === 2) { setTimeout(checkForMatch, 1000); } }; const checkForMatch = () => { const [card1, card2] = flippedCards; if (card1.dataset.icon === card2.dataset.icon) { card1.classList.add('matched'); card2.classList.add('matched'); matchedPairs++; playSound('click', 987); if (matchedPairs === icons.length) { showWinScreen('All pairs found!'); } } else { card1.classList.remove('flipped'); card2.classList.remove('flipped'); playSound('error'); } flippedCards = []; }; createBoard(); } },
+            'color-sequence': { /* ... (same as before) ... */ title: 'Color Sequence', sequence: [], playerSequence: [], level: 0, isPlayerTurn: false, init() { this.sequence = []; this.playerSequence = []; this.level = 0; this.isPlayerTurn = false; const statusEl = document.getElementById('sequence-status'); const startBtn = document.getElementById('start-sequence-btn'); const colorBtns = document.querySelectorAll('.sequence-btn'); statusEl.textContent = 'Press Start to Play!'; startBtn.disabled = false; startBtn.textContent = 'Start Game'; const startGame = () => { startBtn.disabled = true; this.nextLevel(); }; this.nextLevel = () => { this.level++; this.playerSequence = []; this.isPlayerTurn = false; statusEl.textContent = `Level ${this.level} - Watch!`; const colors = ['red', 'green', 'blue', 'yellow']; const nextColor = colors[Math.floor(Math.random() * colors.length)]; this.sequence.push(nextColor); this.playSequence(); }; this.playSequence = () => { let i = 0; const interval = setInterval(() => { if (i >= this.sequence.length) { clearInterval(interval); this.isPlayerTurn = true; statusEl.textContent = `Level ${this.level} - Your Turn!`; return; } this.flashButton(this.sequence[i]); i++; }, 800); }; this.flashButton = (color) => { const btn = document.querySelector(`.sequence-btn[data-color="${color}"]`); btn.classList.add('active'); const freqs = { red: 261.63, green: 329.63, blue: 392.00, yellow: 440.00 }; playSound('note', freqs[color], 0.4); setTimeout(() => btn.classList.remove('active'), 400); }; const handlePlayerClick = (e) => { if (!this.isPlayerTurn) return; const color = e.target.dataset.color; this.flashButton(color); this.playerSequence.push(color); const currentIndex = this.playerSequence.length - 1; if (this.playerSequence[currentIndex] !== this.sequence[currentIndex]) { statusEl.textContent = `Game Over! You reached level ${this.level}.`; playSound('error'); this.isPlayerTurn = false; startBtn.disabled = false; startBtn.textContent = 'Play Again'; return; } if (this.playerSequence.length === this.sequence.length) { this.isPlayerTurn = false; setTimeout(this.nextLevel, 1000); } }; startBtn.onclick = startGame; colorBtns.forEach(btn => btn.onclick = handlePlayerClick); }, nextLevel: this.nextLevel, playSequence: this.playSequence, flashButton: this.flashButton },
+            'mini-sudoku': { /* ... (same as before) ... */ title: 'Mini Sudoku', board: [], solution: [], init() { const grid = document.getElementById('sudoku-grid'); const generatePuzzle = () => { const base = [1, 2, 3, 4]; const shuffle = (arr) => arr.sort(() => Math.random() - 0.5); const r1 = shuffle([...base]); this.solution = [r1[0], r1[1], r1[2], r1[3], r1[2], r1[3], r1[0], r1[1], r1[1], r1[0], r1[3], r1[2], r1[3], r1[2], r1[1], r1[0]]; this.board = [...this.solution]; for(let i = 0; i < 8; i++) { let randIndex; do { randIndex = Math.floor(Math.random() * 16); } while (this.board[randIndex] === null); this.board[randIndex] = null; } }; const createGrid = () => { grid.innerHTML = ''; for (let i = 0; i < 16; i++) { const cell = document.createElement('div'); cell.classList.add('sudoku-cell'); if (this.board[i] !== null) { cell.textContent = this.board[i]; cell.classList.add('given'); } else { const input = document.createElement('input'); input.type = 'number'; input.min = 1; input.max = 4; input.dataset.index = i; input.addEventListener('input', this.validateInput); cell.appendChild(input); } grid.appendChild(cell); } }; const resetGame = () => { generatePuzzle(); createGrid(); }; this.validateInput = (e) => { const input = e.target; const value = parseInt(input.value); if (value < 1 || value > 4 || isNaN(value)) { input.value = ''; } }; const checkSolution = () => { const inputs = grid.querySelectorAll('input'); let isCorrect = true; let isComplete = true; inputs.forEach(input => { const index = parseInt(input.dataset.index); const value = parseInt(input.value); if (!value) { isComplete = false; return; } if (value !== this.solution[index]) { isCorrect = false; input.parentElement.classList.add('error'); setTimeout(() => input.parentElement.classList.remove('error'), 500); } }); if (!isComplete) { alert('Please fill all the cells!'); return; } if (isCorrect) { showWinScreen("Sudoku solved correctly!"); } else { playSound('error'); alert('Some numbers are incorrect. Keep trying!'); } }; document.getElementById('sudoku-reset').addEventListener('click', resetGame); document.getElementById('sudoku-check').addEventListener('click', checkSolution); resetGame(); }, validateInput: this.validateInput, },
+
+            'logic-gate': {
+                title: 'Logic Gates',
+                level: 0,
+                levels: [
+                    { desc: 'Activate the AND gate. Both inputs must be 1.', target: 1, structure: [{ type: 'INPUT', id: 'in1', value: 0 }, { type: 'INPUT', id: 'in2', value: 0 }, { type: 'AND', id: 'g1', inputs: ['in1', 'in2'] }, { type: 'OUTPUT', id: 'out1', input: 'g1' }] },
+                    { desc: 'Activate the OR gate. At least one input must be 1.', target: 1, structure: [{ type: 'INPUT', id: 'in1', value: 0 }, { type: 'INPUT', id: 'in2', value: 0 }, { type: 'OR', id: 'g1', inputs: ['in1', 'in2'] }, { type: 'OUTPUT', id: 'out1', input: 'g1' }] },
+                    { desc: 'Invert the signal with a NOT gate.', target: 1, structure: [{ type: 'INPUT', id: 'in1', value: 0 }, { type: 'NOT', id: 'g1', inputs: ['in1'] }, { type: 'OUTPUT', id: 'out1', input: 'g1' }] }
+                ],
+                state: {},
+                init() { this.level = 0; this.renderLevel(); },
+                renderLevel() {
+                    const levelData = this.levels[this.level];
+                    document.getElementById('logic-gate-level-desc').textContent = `Level ${this.level + 1}: ${levelData.desc}`;
+                    const circuit = document.getElementById('logic-gate-circuit');
+                    circuit.innerHTML = '';
+                    this.state = {};
+                    
+                    // Simple fixed layout
+                    const positions = { in1: {x: 50, y: 50}, in2: {x: 50, y: 150}, g1: {x: 200, y: 100}, out1: {x: 350, y: 100} };
+
+                    levelData.structure.forEach(item => {
+                        this.state[item.id] = { value: item.value, type: item.type, inputs: item.inputs, el: null };
+                        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                        g.setAttribute('transform', `translate(${positions[item.id].x}, ${positions[item.id].y})`);
+                        
+                        if (item.type === 'INPUT' || item.type === 'OUTPUT') {
+                            g.innerHTML = `<rect class="gate-body" x="-20" y="-20" width="40" height="40" rx="5"></rect><text class="gate-text" text-anchor="middle" dominant-baseline="middle" y="5">${item.value}</text>`;
+                            if (item.type === 'INPUT') {
+                                g.classList.add('logic-input');
+                                g.onclick = () => this.toggleInput(item.id);
+                            } else {
+                                g.classList.add('logic-output');
+                            }
+                        } else { // Gate
+                            g.innerHTML = `<rect class="gate-body" x="-30" y="-25" width="60" height="50" rx="10"></rect><text class="gate-text" text-anchor="middle" dominant-baseline="middle">${item.type}</text>`;
+                        }
+                        this.state[item.id].el = g;
+                        circuit.appendChild(g);
+                    });
+
+                    // Draw wires
+                    levelData.structure.filter(i => i.inputs).forEach(item => {
+                        item.inputs.forEach(inputId => {
+                            const wire = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                            const startPos = positions[inputId];
+                            const endPos = positions[item.id];
+                            wire.setAttribute('d', `M ${startPos.x+20} ${startPos.y} C ${startPos.x+100} ${startPos.y}, ${endPos.x-100} ${endPos.y}, ${endPos.x-30} ${endPos.y}`);
+                            wire.setAttribute('fill', 'none');
+                            wire.classList.add('wire');
+                            this.state[inputId].wireEl = wire;
+                            circuit.insertBefore(wire, circuit.firstChild);
+                        });
+                    });
+                    this.updateLogic();
+                },
+                toggleInput(id) {
+                    this.state[id].value = 1 - this.state[id].value;
+                    playSound('click', 600);
+                    this.updateLogic();
+                },
+                updateLogic() {
+                    this.levels[this.level].structure.forEach(item => {
+                        const node = this.state[item.id];
+                        switch(item.type) {
+                            case 'AND': node.value = this.state[item.inputs[0]].value & this.state[item.inputs[1]].value; break;
+                            case 'OR': node.value = this.state[item.inputs[0]].value | this.state[item.inputs[1]].value; break;
+                            case 'NOT': node.value = 1 - this.state[item.inputs[0]].value; break;
+                            case 'OUTPUT': node.value = this.state[item.input].value; break;
+                        }
+                    });
+                    // Update visuals
+                    for (const id in this.state) {
+                        const node = this.state[id];
+                        if (node.type === 'INPUT' || node.type === 'OUTPUT') {
+                            node.el.querySelector('text').textContent = node.value;
+                        }
+                        if (node.wireEl) node.wireEl.classList.toggle('on', node.value === 1);
+                    }
+                    this.checkWin();
+                },
+                checkWin() {
+                    const outputNode = this.state['out1'];
+                    const target = this.levels[this.level].target;
+                    if (outputNode.value === target) {
+                        outputNode.el.classList.add('win');
+                        playSound('win');
+                        if (this.level < this.levels.length - 1) {
+                            setTimeout(() => { this.level++; this.renderLevel(); }, 1500);
+                        } else {
+                            setTimeout(() => showWinScreen('All logic circuits solved!'), 1000);
+                        }
+                    } else {
+                        outputNode.el.classList.remove('win');
+                    }
+                }
+            },
+            'jigsaw-puzzle': {
+                title: 'Jigsaw Puzzle',
+                init() {
+                    const board = document.getElementById('jigsaw-board');
+                    const piecesContainer = document.getElementById('jigsaw-pieces');
+                    const size = 3; // 3x3 grid
+                    const pieceSize = 100;
+                    const imageUrl = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${pieceSize*size}' height='${pieceSize*size}' viewBox='0 0 ${pieceSize*size} ${pieceSize*size}'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%2360a5fa' offset='0%'/><stop stop-color='%23f472b6' offset='100%'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g)'/><text x='50%' y='50%' font-size='60' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-weight='bold'>PUZZLE</text></svg>`;
+                    
+                    board.innerHTML = '';
+                    piecesContainer.innerHTML = '';
+                    board.style.gridTemplateColumns = `repeat(${size}, ${pieceSize}px)`;
+                    board.style.width = `${size * pieceSize + 10}px`;
+
+                    let pieces = [];
+                    for (let i = 0; i < size * size; i++) {
+                        // Create piece
+                        const piece = document.createElement('div');
+                        piece.classList.add('jigsaw-piece');
+                        piece.style.width = `${pieceSize}px`;
+                        piece.style.height = `${pieceSize}px`;
+                        piece.style.backgroundImage = `url("${imageUrl}")`;
+                        const col = i % size;
+                        const row = Math.floor(i / size);
+                        piece.style.backgroundPosition = `-${col * pieceSize}px -${row * pieceSize}px`;
+                        piece.draggable = true;
+                        piece.dataset.id = i;
+                        pieces.push(piece);
+
+                        // Create slot
+                        const slot = document.createElement('div');
+                        slot.classList.add('jigsaw-slot');
+                        slot.style.width = `${pieceSize}px`;
+                        slot.style.height = `${pieceSize}px`;
+                        slot.dataset.id = i;
+                        board.appendChild(slot);
+                    }
+                    
+                    pieces.sort(() => Math.random() - 0.5).forEach(p => piecesContainer.appendChild(p));
+
+                    let draggedPiece = null;
+                    piecesContainer.addEventListener('dragstart', e => {
+                        draggedPiece = e.target;
+                        setTimeout(() => e.target.classList.add('dragging'), 0);
+                    });
+                    piecesContainer.addEventListener('dragend', e => e.target.classList.remove('dragging'));
+
+                    board.addEventListener('dragover', e => e.preventDefault());
+                    board.addEventListener('drop', e => {
+                        e.preventDefault();
+                        if (e.target.classList.contains('jigsaw-slot') && e.target.children.length === 0) {
+                            if (e.target.dataset.id === draggedPiece.dataset.id) {
+                                e.target.appendChild(draggedPiece);
+                                draggedPiece.draggable = false;
+                                draggedPiece.classList.add('snapped');
+                                playSound('click', 800);
+                                if (board.querySelectorAll('.snapped').length === size * size) {
+                                    showWinScreen('Jigsaw complete!');
+                                }
+                            } else {
+                                playSound('error');
+                            }
+                        }
+                    });
+                }
+            },
+            'word-unscramble': {
+                title: 'Word Unscramble',
+                words: ['PUZZLE', 'OFFLINE', 'JAVASCRIPT', 'DEVELOPER', 'CHALLENGE'],
+                currentWord: '',
+                init() {
+                    const scrambledWordEl = document.getElementById('scrambled-word');
+                    const inputEl = document.getElementById('unscramble-input');
+                    const nextBtn = document.getElementById('unscramble-next');
+                    
+                    const setupNewWord = () => {
+                        this.currentWord = this.words[Math.floor(Math.random() * this.words.length)];
+                        let scrambled = this.currentWord.split('').sort(() => Math.random() - 0.5).join('');
+                        if (scrambled === this.currentWord) scrambled = this.currentWord.split('').reverse().join(''); // ensure it's scrambled
+                        scrambledWordEl.textContent = scrambled;
+                        inputEl.value = '';
+                        inputEl.focus();
+                    };
+                    
+                    inputEl.oninput = () => {
+                        if (inputEl.value.toUpperCase() === this.currentWord) {
+                            showWinScreen(`Correct! The word was ${this.currentWord}.`);
+                        }
+                    };
+                    
+                    nextBtn.onclick = setupNewWord;
+                    setupNewWord();
+                }
+            },
+            'maze-runner': {
+                title: 'Maze Runner',
+                playerPos: { x: 1, y: 1 },
+                maze: [],
+                handleKeyDown: null, // to store the event listener
+                init() {
+                    const gridEl = document.getElementById('maze-grid');
+                    const size = 15; // Must be odd
+                    const cellSize = Math.min(window.innerWidth, window.innerHeight) * 0.7 / size;
+                    gridEl.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+                    
+                    // Generate maze
+                    this.maze = Array(size).fill(null).map(() => Array(size).fill(1)); // 1 = wall
+                    const carve = (x, y) => {
+                        this.maze[y][x] = 0; // 0 = path
+                        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => Math.random() - 0.5);
+                        for (let [dx, dy] of directions) {
+                            const nx = x + dx * 2, ny = y + dy * 2;
+                            if (nx > 0 && nx < size-1 && ny > 0 && ny < size-1 && this.maze[ny][nx] === 1) {
+                                this.maze[y+dy][x+dx] = 0;
+                                carve(nx, ny);
+                            }
+                        }
+                    };
+                    carve(1, 1);
+                    this.playerPos = { x: 1, y: 1 };
+                    this.maze[size-2][size-2] = 2; // 2 = goal
+                    
+                    // Render maze
+                    const render = () => {
+                        gridEl.innerHTML = '';
+                        for (let y = 0; y < size; y++) {
+                            for (let x = 0; x < size; x++) {
+                                const cell = document.createElement('div');
+                                cell.classList.add('maze-cell');
+                                if (this.maze[y][x] === 1) cell.classList.add('wall');
+                                if (this.maze[y][x] === 2) cell.classList.add('goal');
+                                if (x === this.playerPos.x && y === this.playerPos.y) cell.classList.add('player');
+                                gridEl.appendChild(cell);
+                            }
+                        }
+                    };
+                    
+                    this.handleKeyDown = (e) => {
+                        let { x, y } = this.playerPos;
+                        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') y--;
+                        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') y++;
+                        if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') x--;
+                        if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') x++;
+                        
+                        if (this.maze[y] && this.maze[y][x] !== 1) {
+                            this.playerPos = { x, y };
+                            playSound('click', 440 + x*10 + y*10, 0.05);
+                            render();
+                            if (this.maze[y][x] === 2) {
+                                showWinScreen('You reached the goal!');
+                            }
+                        }
+                    };
+                    
+                    window.addEventListener('keydown', this.handleKeyDown);
+                    render();
+                },
+                cleanup() {
+                    if (this.handleKeyDown) {
+                        window.removeEventListener('keydown', this.handleKeyDown);
+                    }
+                }
+            }
+        };
+
+        init();
+    });
+    </script>
+</body>
+</html>
